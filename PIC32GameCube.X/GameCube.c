@@ -143,9 +143,6 @@ unsigned char Frame[MAXROWS][MAXX];
 
 volatile uint32_t MilliSeconds = 0;
 
-volatile uint32_t PhaseAcc = 0;
-volatile uint32_t PhaseInc = 0;
-uint16_t Sinbuf[4096];
 
 volatile int SPINbytes = 0;
 volatile uint8_t *SPIBuf = NULL;
@@ -180,44 +177,6 @@ static uint32_t millis(void)
     return (MilliSeconds);
 }
 
-void __ISR(_TIMER_4_VECTOR, ipl4AUTO) Timer4Handler(void) 
-{    
-    static int flag = 0;
-    int i;
-    
-    LATAINV = _LATA_LATA4_MASK; // Toggle RA4 P7 pin 6 (22050Hz)
-    
-    LATDCLR = _LATD_LATD9_MASK;   // Assert SS on RD9
-    
-    i = PhaseAcc >> 20;
-    PhaseAcc += PhaseInc;
-    
-    SPI2BUF = (0 << 15) | (1 << 13) | (1 << 12) | Sinbuf[i];
-    
-    if (i < 2048)
-    {
-        LATDSET = _LATD_LATD0_MASK;     // Assert SYNC
-    }
-    else
-    {
-        LATDCLR = _LATD_LATD0_MASK;     // De-assert SYNC
-    }
-    
-    if (flag > 31)
-    {
-        PR4 = 907;
-        flag = 0;
-    }
-    else
-    {
-        PR4 = 906;
-        flag++;
-    }
-    
-    IFS1CLR = _IFS1_SPI2RXIF_MASK;  // Clear SPI2 interrupt flag
-    IEC1SET = _IEC1_SPI2RXIE_MASK;  // Enable SPI2 interrupt
-    IFS0CLR = _IFS0_T4IF_MASK;  // Clear Timer 4 interrupt flag
-}
 
 void __ISR(_TIMER_1_VECTOR, ipl2AUTO) Timer1Handler(void) 
 {
@@ -228,16 +187,6 @@ void __ISR(_TIMER_1_VECTOR, ipl2AUTO) Timer1Handler(void)
     IFS0CLR = _IFS0_T1IF_MASK;  // Clear Timer 1 interrupt flag
 }
 
-void __ISR(_SPI_2_VECTOR, ipl3AUTO) SPI2Handler(void) 
-{
-    volatile uint32_t junk;
-    
-    junk = SPI2BUF;
-    LATDSET = _LATD_LATD9_MASK;   // De-assert SS on RD9
-    
-    IFS1CLR = _IFS1_SPI2RXIF_MASK;  // Clear SPI2 interrupt flag
-    IEC1CLR = _IEC1_SPI2RXIE_MASK;  // Disable SPI2 interrupt
-}
 
 void __ISR(_SPI_3_VECTOR, ipl1AUTO) SPI3Handler(void) 
 {
@@ -500,31 +449,6 @@ uint16_t analogRead(const int chan)
     return (ADC1BUF0);
 }
 
-static void SPI2_begin(const int baud)
-{
-    /* Configure SPI2 */
-    // SCK2 on pin 10, RG6, P1 pin 32
-    SDI2Rbits.SDI2R = 0;   // SDI2 on RPD3, pin 78
-    RPC13Rbits.RPC13R = 6; // SDO2 on RPC13, pin 73, P7 pin 16
-    
-    SPI2BRG = (20000000 / baud) - 1;
-    SPI2CONbits.MSTEN = 1;  // Master mode
-    SPI2CONbits.MODE16 = 1; // 16-bit mode
-    SPI2CONbits.MODE32 = 0;
-    SPI2CONbits.CKE = 1;
-    SPI2CONbits.STXISEL = 0; // Interrupt on Tx complete
-    SPI2CONbits.SRXISEL = 3; // Interrupt on Rx full
-    
-    TRISDbits.TRISD9 = 0;   // RD9 pin 69, P7 pin 12 as output for SS
-    LATDSET = _LATD_LATD9_MASK;   // De-assert SS for SPI2
-    
-    IPC8bits.SPI2IP = 3;          // SPI2 interrupt priority 3
-    IPC8bits.SPI2IS = 1;          // SPI2 interrupt sub-priority 1
-    IFS1CLR = _IFS1_SPI2TXIF_MASK;  // Clear SPI2 Tx interrupt flag
-    IFS1CLR = _IFS1_SPI2RXIF_MASK;  // Clear SPI2 Rx interrupt flag
-    
-    SPI2CONbits.ON = 1;
-}
 
 static void SPI3_begin(const int baud)
 {    
@@ -608,12 +532,6 @@ static void I2C1_begin(const int speed)
     }
     
     I2C1CONSET = _I2C1CON_ON_MASK;  // Enable I2C1
-}
-
-
-void DDS_SetFreq(const int freq)
-{
-    PhaseInc = 97348 * freq;  // 97391.548662132 = 4294967296 / 44100
 }
 
 
@@ -862,8 +780,6 @@ static void TRIS_begin(void)
 
 void main(void)
 {
-    int i;
-    double delta;
     uint16_t ana;
     
     /* Set up peripherals to match pin connections on PCB */
@@ -891,7 +807,6 @@ void main(void)
     
     I2C1_begin(100);
     
-    SPI2_begin(2000000);
     SPI3_begin(1000000);
     
     RPD8Rbits.RPD8R = 12; // OC1 on P7 pin 10 (LED PWM)
@@ -919,14 +834,6 @@ void main(void)
     
     T1CONbits.ON = 1;           // Enable Timer 1
     
-    /* Configure Timer 4 */
-    T4CONbits.TCKPS = 0;        // Timer 4 prescale: 1
-    
-    TMR4 = 0x00;                // Clear Timer 4 counter
-    PR4 = 906;                  // Interrupt every 907 ticks (44100Hz)
-    
-    T4CONbits.ON = 1;           // Enable Timer 4
-    
     /* Configure interrupts */
     INTCONSET = _INTCON_MVEC_MASK; // Multi-vector mode
     
@@ -940,13 +847,6 @@ void main(void)
     IFS0CLR = _IFS0_T4IF_MASK;  // Clear Timer 4 interrupt flag
     IEC0SET = _IEC0_T4IE_MASK;  // Enable Timer 4 interrupt
     
-    delta = (2.0 * M_PI) / 4096.0;
-    
-    for (i = 0; i < 4096; i++)
-    {
-        Sinbuf[i] = (sin(delta * (double)i) * 2047.0) + 2048.0;
-    }
-    
     __asm__("EI");              // Global interrupt enable
     
     OLED_begin(MAXX, 32);
@@ -956,7 +856,6 @@ void main(void)
     while (1)
     {
         U1TXREG = 'A';
-        DDS_SetFreq(440);
         greyFrame();
     
         updscreen();
@@ -975,8 +874,6 @@ void main(void)
         
         printf("%dms %d\r\n", millis(), ana);
         
-        DDS_SetFreq(440 * 2);
-        
         LED1 = 1;
         LED2 = 0;
         
@@ -988,7 +885,6 @@ void main(void)
         updscreen();
         
         U3TXREG = 'C';
-        DDS_SetFreq(440 * 4);
         
         LED2 = 1;
         LED3 = 0;
@@ -998,7 +894,6 @@ void main(void)
         delayms(500);
         
         U4TXREG = 'D';
-        DDS_SetFreq(440 * 8);
         
         LED3 = 1;
         LED4 = 0;
@@ -1008,7 +903,6 @@ void main(void)
         delayms(500);
         
         U5TXREG = 'E';
-        DDS_SetFreq(220);
         
         LED4 = 1;
         LED5 = 0;
