@@ -56,10 +56,10 @@
 #define LED4        LATAbits.LATA7
 #define LED5        LATAbits.LATA6
 
-// Size of 128x64 OLED screen
+// Size of 128x32 OLED screen
 #define MAXX 128
-#define MAXY 64
-#define MAXROWS 8
+#define MAXY 32
+#define MAXROWS 4
 
 // Co-ord of centre of screen
 #define CENX (MAXX / 2)
@@ -602,7 +602,7 @@ static void updscreen(void)
     
     LATGbits.LATG9 = 1;  // DC HIGH
     
-    SPIwrite(&Frame[0][0], 4 * MAXX);
+    SPIwrite(&Frame[0][0], MAXROWS * MAXX);
 }
 
 
@@ -849,7 +849,7 @@ void main(void)
     
     __asm__("EI");              // Global interrupt enable
     
-    OLED_begin(MAXX, 32);
+    OLED_begin(MAXX, MAXY);
     
     puts("DDS");
     

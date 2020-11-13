@@ -6,13 +6,11 @@
 
 // Size of OLED screen
 #define MAXX 128
-#define MAXY 64
-#define MAXROWS 8  // 8 rows of bytes
+#define MAXY 32
+#define MAXROWS 4  // 4 rows of bytes
 
-#define CENX   (MAXX / 2)
-#define CENY   (MAXY / 2)
 
-// The frame buffer, 1024 bytes
+// The frame buffer, 512 bytes
 unsigned char Frame[MAXROWS][MAXX];
 
 void writeOLED (const char name[]);
