@@ -779,22 +779,23 @@ static void TRIS_begin(void)
 }
 
 
-void ReadController(void)
+int ReadController(const uint8_t cmd, const int nBits)
 {
     int i;
-    uint32_t cmd;
     uint32_t reply;
     uint32_t mask;
+    const int expectedBits = nBits + 1;
+    int actualBits = 0;
+    int oneTime, zeroTime;
     int w, h, l;
     uint8_t pulseh[66];
     uint8_t pulsel[66];
     
     __asm__("DI");              // Global interrupt disable
         
-    mask = 0x100;
-    cmd = 0x03;
+    mask = 0x80;
 
-    for (i = 0; i < 9; i++)
+    for (i = 0; i < 8; i++)
     {
         if (cmd & mask)
         {
@@ -830,15 +831,26 @@ void ReadController(void)
         mask >>= 1;
     }
 
-    // TODO: Send stop bit, 3us
+    // Send stop bit, 1us LOW
+    __asm__("NOP");
+    __asm__("NOP");
+    __asm__("NOP");
+    __asm__("NOP");
+    LATACLR = _LATA_LATA4_MASK;  // 1us LOW
 
-    for (w = 0; w < 255; w++)
+    dally(2);
+
+    LATASET = _LATA_LATA4_MASK;
+
+    dally(1);
+            
+    for (w = 0; w < 256; w++)       // Wait for controller to pull line LOW
     {
         if (PORTAbits.RA5 == 0)
             break;
     }
 
-    for (i = 0; i < 33; i++)
+    for (i = 0; i < expectedBits; i++)
     {
         for (l = 0; l < 64; l++)
             if (PORTAbits.RA5 != 0)
@@ -857,26 +869,45 @@ void ReadController(void)
     reply = 0;
     mask = 0x80000000;
 
-    for (i = 0; i < 33; i++)
+    oneTime = (pulsel[1] + pulseh[1]) / 3;
+    zeroTime = oneTime * 2;
+    
+    if (w < 255)
     {
-        int bitVal;
-
-        if (pulsel[i] > ((pulsel[i] + pulseh[i]) / 2))
+        for (i = 0; i < expectedBits; i++)
         {
-            bitVal = 0;
-        }
-        else
-        {
-            bitVal = 1;
-            reply |= mask;
+            int bitVal;
+
+            if (pulsel[i] > zeroTime)
+            {
+                bitVal = 0;
+            }
+            else if (pulsel[i] < oneTime)
+            {
+                bitVal = 1;
+                reply |= mask;
+            }
+            else
+            {
+                bitVal = 2;
+                actualBits = i;
+            }
+
+            mask >>= 1;
+
+            printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
         }
 
-        mask >>= 1;
-
-        printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
+        printf("cmd = %d, w = %d, reply = 0x%08x\n", cmd, w, reply);
+        
+        return (actualBits);
     }
-
-    printf("w = %d, reply = 0x%08x\n", w, reply);
+    else
+    {
+        printf("cmd = %d, w = %d: No response from controller\n", cmd, w);
+        
+        return (0);
+    }
 }
 
 
@@ -999,7 +1030,7 @@ void main(void)
         
         U4TXREG = 'D';
         
-        ReadController();
+        ReadController(0x01, 32);
         
         LED3 = 1;
         LED4 = 0;
