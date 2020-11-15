@@ -16,7 +16,8 @@ OLED display connections:
 
 Digital pin connected to GameCube controller:
 
-* GC RD0 pin 72
+* GC RA4 pin 60 via diode, to pull signal line down
+* GC RA5 pin 61, direct, to sense state of signal line
 
 Debugging LEDs on dev board:
 
