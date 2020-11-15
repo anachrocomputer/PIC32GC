@@ -779,9 +779,8 @@ static void TRIS_begin(void)
 }
 
 
-void main(void)
+void ReadController(void)
 {
-    uint16_t ana;
     int i;
     uint32_t cmd;
     uint32_t reply;
@@ -789,6 +788,101 @@ void main(void)
     int w, h, l;
     uint8_t pulseh[66];
     uint8_t pulsel[66];
+    
+    __asm__("DI");              // Global interrupt disable
+        
+    mask = 0x100;
+    cmd = 0x03;
+
+    for (i = 0; i < 9; i++)
+    {
+        if (cmd & mask)
+        {
+            LATACLR = _LATA_LATA4_MASK;  // 1us LOW
+
+            dally(2);
+            __asm__("NOP");
+            __asm__("NOP");
+            __asm__("NOP");
+            __asm__("NOP");
+
+            LATASET = _LATA_LATA4_MASK;  // 3us HIGH
+
+            dally(8);
+        }
+        else
+        {
+            LATACLR = _LATA_LATA4_MASK;  // 3us LOW
+
+            dally(9);
+
+            LATASET = _LATA_LATA4_MASK;  // 1us HIGH
+
+            dally(1);
+            __asm__("NOP");
+            __asm__("NOP");
+            __asm__("NOP");
+            __asm__("NOP");
+            __asm__("NOP");
+            __asm__("NOP");
+        }
+
+        mask >>= 1;
+    }
+
+    // TODO: Send stop bit, 3us
+
+    for (w = 0; w < 255; w++)
+    {
+        if (PORTAbits.RA5 == 0)
+            break;
+    }
+
+    for (i = 0; i < 33; i++)
+    {
+        for (l = 0; l < 64; l++)
+            if (PORTAbits.RA5 != 0)
+                break;
+
+        for (h = 0; h < 64; h++)
+            if (PORTAbits.RA5 == 0)
+                break;
+
+        pulseh[i] = h;
+        pulsel[i] = l;
+    }
+
+    __asm__("EI");              // Global interrupt enable
+
+    reply = 0;
+    mask = 0x80000000;
+
+    for (i = 0; i < 33; i++)
+    {
+        int bitVal;
+
+        if (pulsel[i] > ((pulsel[i] + pulseh[i]) / 2))
+        {
+            bitVal = 0;
+        }
+        else
+        {
+            bitVal = 1;
+            reply |= mask;
+        }
+
+        mask >>= 1;
+
+        printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
+    }
+
+    printf("w = %d, reply = 0x%08x\n", w, reply);
+}
+
+
+void main(void)
+{
+    uint16_t ana;
     
     /* Set up peripherals to match pin connections on PCB */
     PPS_begin();
@@ -905,94 +999,7 @@ void main(void)
         
         U4TXREG = 'D';
         
-        __asm__("DI");              // Global interrupt disable
-        
-        mask = 0x100;
-        cmd = 0x03;
-        
-        for (i = 0; i < 9; i++)
-        {
-            if (cmd & mask)
-            {
-                LATACLR = _LATA_LATA4_MASK;  // 1us LOW
-
-                dally(2);
-                __asm__("NOP");
-                __asm__("NOP");
-                __asm__("NOP");
-                __asm__("NOP");
-
-                LATASET = _LATA_LATA4_MASK;  // 3us HIGH
-
-                dally(8);
-            }
-            else
-            {
-                LATACLR = _LATA_LATA4_MASK;  // 3us LOW
-
-                dally(9);
-                
-                LATASET = _LATA_LATA4_MASK;  // 1us HIGH
-                
-                dally(1);
-                __asm__("NOP");
-                __asm__("NOP");
-                __asm__("NOP");
-                __asm__("NOP");
-                __asm__("NOP");
-                __asm__("NOP");
-            }
-            
-            mask >>= 1;
-        }
-        
-        // TODO: Send stop bit, 3us
-        
-        for (w = 0; w < 255; w++)
-        {
-            if (PORTAbits.RA5 == 0)
-                break;
-        }
-        
-        for (i = 0; i < 33; i++)
-        {
-            for (l = 0; l < 64; l++)
-                if (PORTAbits.RA5 != 0)
-                    break;
-            
-            for (h = 0; h < 64; h++)
-                if (PORTAbits.RA5 == 0)
-                    break;
-            
-            pulseh[i] = h;
-            pulsel[i] = l;
-        }
-        
-        __asm__("EI");              // Global interrupt enable
-        
-        reply = 0;
-        mask = 0x80000000;
-        
-        for (i = 0; i < 33; i++)
-        {
-            int bitVal;
-            
-            if (pulsel[i] > ((pulsel[i] + pulseh[i]) / 2))
-            {
-                bitVal = 0;
-            }
-            else
-            {
-                bitVal = 1;
-                reply |= mask;
-            }
-            
-            mask >>= 1;
-            
-            printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
-        }
-        
-        printf("w = %d, reply = 0x%08x\n", w, reply);
+        ReadController();
         
         LED3 = 1;
         LED4 = 0;
