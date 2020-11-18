@@ -135,6 +135,31 @@ struct UART_BUFFER
 // UART buffers
 static struct UART_BUFFER U2Buf;
 
+// Controller message buffer
+typedef union {
+    uint8_t asBytes[8];
+    struct {
+        unsigned int dpadRight:1;
+        unsigned int dpadLeft:1;
+        unsigned int dpadDown:1;
+        unsigned int dpadUp:1;
+        unsigned int butStart:1;
+        unsigned int butZ:1;
+        unsigned int butB:1;
+        unsigned int butA:1;
+        unsigned int cpadRight:1;
+        unsigned int cpadLeft:1;
+        unsigned int cpadDown:1;
+        unsigned int cpadUp:1;
+        unsigned int butR:1;
+        unsigned int butL:1;
+        unsigned int xxx:1;
+        unsigned int yyy:1;
+        int8_t joyx;
+        int8_t joyy;
+    } asN64;
+} ControllerReply;
+
 // The frame buffer, 1024 bytes
 unsigned char Frame[MAXROWS][MAXX];
 
@@ -779,10 +804,9 @@ static void TRIS_begin(void)
 }
 
 
-int ReadController(const uint8_t cmd, const int nBits)
+int ReadController(const uint8_t cmd, const int nBits, uint8_t buf[])
 {
     int i;
-    uint32_t reply;
     uint32_t mask;
     const int expectedBits = nBits + 1;
     int actualBits = 0;
@@ -866,8 +890,7 @@ int ReadController(const uint8_t cmd, const int nBits)
 
     __asm__("EI");              // Global interrupt enable
 
-    reply = 0;
-    mask = 0x80000000;
+    memset(buf, 0, nBits / 8);
 
     oneTime = (pulsel[1] + pulseh[1]) / 3;
     zeroTime = oneTime * 2;
@@ -885,7 +908,7 @@ int ReadController(const uint8_t cmd, const int nBits)
             else if (pulsel[i] < oneTime)
             {
                 bitVal = 1;
-                reply |= mask;
+                buf[i / 8] |= 0x80 >> (i % 8);
             }
             else
             {
@@ -893,12 +916,10 @@ int ReadController(const uint8_t cmd, const int nBits)
                 actualBits = i;
             }
 
-            mask >>= 1;
-
             printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
         }
 
-        printf("cmd = %d, w = %d, reply = 0x%08x\n", cmd, w, reply);
+        printf("cmd = %d, w = %d\n", cmd, w);
         
         return (actualBits);
     }
@@ -913,6 +934,7 @@ int ReadController(const uint8_t cmd, const int nBits)
 
 void main(void)
 {
+    ControllerReply buf;
     uint16_t ana;
     
     /* Set up peripherals to match pin connections on PCB */
@@ -1030,7 +1052,30 @@ void main(void)
         
         U4TXREG = 'D';
         
-        ReadController(0x01, 32);
+        if (ReadController(0x01, 32, buf.asBytes) > 0)
+        {
+            char butStr[17];
+            
+            butStr[0]  = buf.asN64.butA      ? 'A' : '.';
+            butStr[1]  = buf.asN64.butB      ? 'B' : '.';
+            butStr[2]  = buf.asN64.butZ      ? 'Z' : '.';
+            butStr[3]  = buf.asN64.butL      ? 'L' : '.';
+            butStr[4]  = buf.asN64.butR      ? 'R' : '.';
+            butStr[5]  = buf.asN64.butStart  ? 'S' : '.';
+            butStr[6]  = buf.asN64.dpadLeft  ? 'L' : '.';
+            butStr[7]  = buf.asN64.dpadRight ? 'R' : '.';
+            butStr[8]  = buf.asN64.dpadUp    ? 'U' : '.';
+            butStr[9]  = buf.asN64.dpadDown  ? 'D' : '.';
+            butStr[10] = buf.asN64.cpadLeft  ? 'L' : '.';
+            butStr[11] = buf.asN64.cpadRight ? 'R' : '.';
+            butStr[12] = buf.asN64.cpadUp    ? 'U' : '.';
+            butStr[13] = buf.asN64.cpadDown  ? 'D' : '.';
+            butStr[14] = '\0';
+            
+            printf("%s %d %d\n", butStr, buf.asN64.joyx, buf.asN64.joyy);
+        }
+        else
+            printf("No reply\n");
         
         LED3 = 1;
         LED4 = 0;
