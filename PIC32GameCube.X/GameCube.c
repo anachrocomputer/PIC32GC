@@ -935,7 +935,6 @@ int ReadController(const uint8_t cmd, const int nBits, uint8_t buf[])
 void main(void)
 {
     ControllerReply buf;
-    uint16_t ana;
     
     /* Set up peripherals to match pin connections on PCB */
     PPS_begin();
@@ -1012,45 +1011,17 @@ void main(void)
     
     while (1)
     {
-        U1TXREG = 'A';
         greyFrame();
     
         updscreen();
         
-        LED1 = 0;
-        LED2 = 1;
-        LED3 = 1;
-        LED4 = 1;
-        LED5 = 1;
-        
-        OC1RS = 0;
-        
         delayms(500);
         
-        ana = analogRead(6);
-        
-        printf("%dms %d\r\n", millis(), ana);
-        
-        LED1 = 1;
-        LED2 = 0;
-        
-        OC1RS = 128;
-        
-        delayms(500);
         memcpy(Frame, DdsLogo, sizeof (Frame));
     
         updscreen();
         
-        U3TXREG = 'C';
-        
-        LED2 = 1;
-        LED3 = 0;
-        
-        OC1RS = 256;
-        
         delayms(500);
-        
-        U4TXREG = 'D';
         
         if (ReadController(0x01, 32, buf.asBytes) > 0)
         {
@@ -1072,26 +1043,24 @@ void main(void)
             butStr[13] = buf.asN64.cpadDown  ? 'D' : '.';
             butStr[14] = '\0';
             
+            LED1 = buf.asN64.butA ? 0 : 1;
+            LED2 = buf.asN64.butB ? 0 : 1;
+            LED3 = buf.asN64.butZ ? 0 : 1;
+            LED4 = buf.asN64.butL ? 0 : 1;
+            LED5 = buf.asN64.butR ? 0 : 1;
+            
             printf("%s %d %d\n", butStr, buf.asN64.joyx, buf.asN64.joyy);
         }
         else
+        {
+            LED1 = 1;
+            LED2 = 1;
+            LED3 = 1;
+            LED4 = 1;
+            LED5 = 1;
+            
             printf("No reply\n");
-        
-        LED3 = 1;
-        LED4 = 0;
-        
-        OC1RS = 512;
-        
-        delayms(500);
-        
-        U5TXREG = 'E';
-        
-        LED4 = 1;
-        LED5 = 0;
-        
-        OC1RS = 1023;
-        
-        delayms(500);
+        }
     }
 }
 
