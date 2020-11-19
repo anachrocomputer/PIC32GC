@@ -628,6 +628,9 @@ static void updscreen(void)
     LATGbits.LATG9 = 1;  // DC HIGH
     
     SPIwrite(&Frame[0][0], MAXROWS * MAXX);
+    
+    while (SPIbytesPending() > 0)   // Wait for SPI transaction using 'Frame' to complete
+        ;
 }
 
 
@@ -916,16 +919,16 @@ int ReadController(const uint8_t cmd, const int nBits, uint8_t buf[])
                 actualBits = i;
             }
 
-            printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
+            //printf("%d: %2d %2d %2d %d\n", i, pulsel[i] + pulseh[i], pulsel[i], pulseh[i], bitVal);
         }
 
-        printf("cmd = %d, w = %d\n", cmd, w);
+        //printf("cmd = %d, w = %d\n", cmd, w);
         
         return (actualBits);
     }
     else
     {
-        printf("cmd = %d, w = %d: No response from controller\n", cmd, w);
+        //printf("cmd = %d, w = %d: No response from controller\n", cmd, w);
         
         return (0);
     }
@@ -1005,23 +1008,19 @@ void main(void)
     
     OLED_begin(MAXX, MAXY);
     
+    greyFrame();
+    
+    updscreen();
+
+    delayms(50);
+    
     puts("GameCube");
     
     LATASET = _LATA_LATA4_MASK; // Set RA4 HIGH initially
     
     while (1)
     {
-        greyFrame();
-    
-        updscreen();
-        
-        delayms(500);
-        
         memcpy(Frame, DdsLogo, sizeof (Frame));
-    
-        updscreen();
-        
-        delayms(500);
         
         if (ReadController(0x01, 32, buf.asBytes) > 0)
         {
@@ -1061,6 +1060,10 @@ void main(void)
             
             printf("No reply\n");
         }
+        
+        updscreen();
+        
+        delayms(50);
     }
 }
 
