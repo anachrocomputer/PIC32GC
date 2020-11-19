@@ -698,6 +698,134 @@ void greyFrame(void)
 }
 
 
+/* setPixel --- set a single pixel */
+
+void setPixel(const unsigned int x, const unsigned int y)
+{
+    if ((x < MAXX) && (y < MAXY))
+        Frame[y / 8][x] |= 1 << (y & 7);
+    else
+    {
+//      Serial.print("setPixel(");
+//      Serial.print(x);
+//      Serial.print(",");
+//      Serial.print(y);
+//      Serial.println(")");
+    }
+}
+
+
+/* clrPixel --- clear a single pixel */
+
+void clrPixel(const unsigned int x, const unsigned int y)
+{
+    if ((x < MAXX) && (y < MAXY))
+        Frame[y / 8][x] &= ~(1 << (y & 7));
+    else
+    {
+//      Serial.print("clrPixel(");
+//      Serial.print(x);
+//      Serial.print(",");
+//      Serial.print(y);
+//      Serial.println(")");
+    }
+}
+
+
+/* setVline --- draw vertical line */
+
+void setVline(const unsigned int x, const unsigned int y1, const unsigned int y2)
+{
+    unsigned int y;
+
+    for (y = y1; y <= y2; y++)
+        setPixel(x, y);
+}
+
+
+/* clrVline --- draw vertical line */
+
+void clrVline(const unsigned int x, const unsigned int y1, const unsigned int y2)
+{
+    unsigned int y;
+
+    for (y = y1; y <= y2; y++)
+        clrPixel(x, y);
+}
+
+
+/* setHline --- set pixels in a horizontal line */
+
+void setHline(const unsigned int x1, const unsigned int x2, const unsigned int y)
+{
+    unsigned int x;
+    unsigned int row;
+    unsigned char b;
+
+    row = y / 8;
+    b = 1 << (y  & 7);
+
+    for (x = x1; x <= x2; x++)
+        Frame[row][x] |= b;
+}
+
+
+/* clrHline --- clear pixels in a horizontal line */
+
+void clrHline(const unsigned int x1, const unsigned int x2, const unsigned int y)
+{
+    unsigned int x;
+    unsigned int row;
+    unsigned char b;
+
+    row = y / 8;
+    b = ~(1 << (y  & 7));
+
+    for (x = x1; x <= x2; x++)
+      Frame[row][x] &= b;
+}
+
+
+/* setRect --- set pixels in a (non-filled) rectangle */
+
+void setRect(const int x1, const int y1, const int x2, const int y2)
+{
+    setHline(x1, x2, y1);
+    setVline(x2, y1, y2);
+    setHline(x1, x2, y2);
+    setVline(x1, y1, y2);
+}
+
+
+/* fillRect --- set pixels in a filled rectangle */
+
+void fillRect(const int x1, const int y1, const int x2, const int y2, const int ec, const int fc)
+{
+    int y;
+
+    for (y = y1; y <= y2; y++)
+        if (fc == 0)
+            clrHline(x1, x2, y);
+        else if (fc == 1)
+            setHline(x1, x2, y);
+
+    if (ec == 1)
+    {
+        setHline(x1, x2, y1);
+        setVline(x2, y1, y2);
+        setHline(x1, x2, y2);
+        setVline(x1, y1, y2);
+    }
+    else if (ec == 0)
+    {
+        clrHline(x1, x2, y1);
+        clrVline(x2, y1, y2);
+        clrHline(x1, x2, y2);
+        clrVline(x1, y1, y2);
+    }
+}
+
+
 /* PPS_begin --- map Peripheral Pin Select to suit dev board */
 
 static void PPS_begin(void)
@@ -1047,6 +1175,36 @@ void main(void)
             LED3 = buf.asN64.butZ ? 0 : 1;
             LED4 = buf.asN64.butL ? 0 : 1;
             LED5 = buf.asN64.butR ? 0 : 1;
+            
+            if (buf.asN64.butA)
+                fillRect(0, 0, 8, 8, 1, 1);
+            
+            if (buf.asN64.butB)
+                fillRect(8, 0, 16, 8, 1, 1);
+            
+            if (buf.asN64.butZ)
+                fillRect(16, 0, 24, 8, 1, 1);
+            
+            if (buf.asN64.butL)
+                fillRect(24, 0, 32, 8, 1, 1);
+            
+            if (buf.asN64.butR)
+                fillRect(32, 0, 40, 8, 1, 1);
+            
+            if (buf.asN64.cpadLeft)
+                fillRect(40, 0, 48, 8, 1, 1);
+            
+            if (buf.asN64.cpadRight)
+                fillRect(48, 0, 56, 8, 1, 1);
+            
+            if (buf.asN64.cpadUp)
+                fillRect(56, 0, 64, 8, 1, 1);
+            
+            if (buf.asN64.cpadDown)
+                fillRect(64, 0, 72, 8, 1, 1);
+            
+            setVline(64 + buf.asN64.joyx, 8, 15);
+            setVline(64 + buf.asN64.joyy, 16, 23);
             
             printf("%s %d %d\n", butStr, buf.asN64.joyx, buf.asN64.joyy);
         }
