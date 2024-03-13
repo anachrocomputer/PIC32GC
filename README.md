@@ -1,8 +1,10 @@
-# PIC32GC
+# PIC32GC #
 
 Read game controllers and joysticks connected to a PIC32MX550F256L.
 SPI3 clock at 1MHz, connects to an OLED display module, 128x32 pixel,
 based on the SSD1306 chip.
+
+## Connections ##
 
 OLED display connections:
 
@@ -30,3 +32,12 @@ Debugging LEDs on dev board:
 PIC32 pin numbers are for the 100-pin package.
 
 LEDs light when the pin is pulled LOW.
+
+## PIC32 Toolchain ##
+
+MPLAB X V3.45 and 'xc32' V2.15. These are quite old versions now, so I really ought to upgrade!
+
+## PIC32 Programmer ##
+
+Microchip ICD3. Other programmers should work, e.g. ICD4 or PICkit4.
+
