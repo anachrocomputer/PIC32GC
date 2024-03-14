@@ -436,50 +436,6 @@ void _mon_putc(const char ch)
 }
 
 
-static void ADC_begin(void)
-{    
-    AD1CON1bits.FORM = 0; // Integer
-    AD1CON1bits.SSRC = 7; // Auto convert after sampling
-    AD1CON1bits.ASAM = 0; // Sampling begins when SAMP bit is set
-    AD1CON1bits.SAMP = 0;
-    
-    AD1CON2bits.VCFG = 0;  // Vdd/Vss references
-    AD1CON2bits.CSCNA = 0; // Do not scan inputs
-    AD1CON2bits.ALTS = 0;  // Always use MUX A
-    AD1CON2bits.SMPI = 0;  // Interrupt on every conversion
-    
-    AD1CON3bits.ADRC = 0;   // Peripheral bus clock
-    AD1CON3bits.SAMC = 15;  // Auto-sample 15 Tad
-    AD1CON3bits.ADCS = 127; // Slow clock
-    
-    AD1CHSbits.CH0SA = 6; // Mux to AN6
-    AD1CHSbits.CH0NA = 0; // Negative input is Vr-    
-    
-    ANSELBbits.ANSB6 = 1;   // RB6, AN6, pin 26, P1-37 analog
-    TRISBbits.TRISB6 = 1;   // RB6, AN6, pin 26, P1-37 input
-    
-    AD1CON1SET = _AD1CON1_ON_MASK;
-}
-
-
-/* analogRead --- Arduino-like function to read an analog input pin */
-
-uint16_t analogRead(const int chan)
-{    
-    AD1CHSbits.CH0SA = chan;
-    
-    AD1CON1SET = _AD1CON1_SAMP_MASK;    // Start sampling, then conversion
-    
-    while (AD1CON1bits.SAMP)        // Wait for sampling to complete
-        ;
-    
-    while (AD1CON1bits.DONE == 0)   // Wait for conversion to complete
-        ;
-    
-    return (ADC1BUF0);
-}
-
-
 static void SPI3_begin(const int baud)
 {    
     /* Configure SPI3 */
@@ -1093,8 +1049,6 @@ void main(void)
     UART4_begin(9600);
     UART5_begin(9600);
 
-    ADC_begin();
-    
     I2C1_begin(100);
     
     SPI3_begin(1000000);
@@ -1131,11 +1085,6 @@ void main(void)
     IPC1bits.T1IS = 1;          // Timer 1 interrupt sub-priority 1
     IFS0CLR = _IFS0_T1IF_MASK;  // Clear Timer 1 interrupt flag
     IEC0SET = _IEC0_T1IE_MASK;  // Enable Timer 1 interrupt
-    
-    IPC4bits.T4IP = 4;          // Timer 4 interrupt priority 4
-    IPC4bits.T4IS = 1;          // Timer 4 interrupt sub-priority 1
-    IFS0CLR = _IFS0_T4IF_MASK;  // Clear Timer 4 interrupt flag
-    IEC0SET = _IEC0_T4IE_MASK;  // Enable Timer 4 interrupt
     
     __builtin_enable_interrupts();   // Global interrupt enable
     
