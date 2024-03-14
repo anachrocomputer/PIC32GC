@@ -208,7 +208,7 @@ static uint32_t millis(void)
 }
 
 
-void __ISR(_TIMER_1_VECTOR, ipl2AUTO) Timer1Handler(void) 
+void __ISR(_TIMER_1_VECTOR, ipl7AUTO) Timer1Handler(void)
 {
     MilliSeconds++;
     
@@ -218,7 +218,7 @@ void __ISR(_TIMER_1_VECTOR, ipl2AUTO) Timer1Handler(void)
 }
 
 
-void __ISR(_SPI_3_VECTOR, ipl1AUTO) SPI3Handler(void) 
+void __ISR(_SPI_3_VECTOR, ipl4AUTO) SPI3Handler(void)
 {
     volatile uint32_t junk;
     
@@ -330,7 +330,7 @@ static void UART2_begin(const int baud)
     
     U2BRG = (40000000 / (baud * 16)) - 1;
     
-    IPC9bits.U2IP = 1;          // UART2 interrupt priority 1
+    IPC9bits.U2IP = 1;          // UART2 interrupt priority 1 (lowest)
     IPC9bits.U2IS = 2;          // UART2 interrupt sub-priority 2
     
     IFS1CLR = _IFS1_U2TXIF_MASK;  // Clear UART2 Tx interrupt flag
@@ -498,7 +498,7 @@ static void SPI3_begin(const int baud)
     TRISAbits.TRISA0 = 0;   // RA0 pin 17, P1 pin 24 as output for SS
     LATASET = _LATA_LATA0_MASK;   // De-assert SS for SPI3
     
-    IPC12bits.SPI3IP = 1;          // SPI3 interrupt priority 1
+    IPC12bits.SPI3IP = 4;          // SPI3 interrupt priority 4
     IPC12bits.SPI3IS = 1;          // SPI3 interrupt sub-priority 1
     IFS2CLR = _IFS2_SPI3TXIF_MASK;  // Clear SPI3 Tx interrupt flag
     IFS2CLR = _IFS2_SPI3RXIF_MASK;  // Clear SPI3 Rx interrupt flag
@@ -1127,7 +1127,7 @@ void main(void)
     /* Configure interrupts */
     INTCONSET = _INTCON_MVEC_MASK; // Multi-vector mode
     
-    IPC1bits.T1IP = 2;          // Timer 1 interrupt priority 2
+    IPC1bits.T1IP = 7;          // Timer 1 interrupt priority 7 (highest)
     IPC1bits.T1IS = 1;          // Timer 1 interrupt sub-priority 1
     IFS0CLR = _IFS0_T1IF_MASK;  // Clear Timer 1 interrupt flag
     IEC0SET = _IEC0_T1IE_MASK;  // Enable Timer 1 interrupt
