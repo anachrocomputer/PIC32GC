@@ -21,7 +21,7 @@
 #pragma config FPLLIDIV = DIV_2         // PLL Input Divider (2x Divider)
 #pragma config FPLLMUL = MUL_20         // PLL Multiplier (20x Multiplier)
 #pragma config UPLLIDIV = DIV_4         // USB PLL Input Divider (4x Divider)
-#pragma config UPLLEN = ON              // USB PLL Enable (Enabled)
+#pragma config UPLLEN = OFF             // USB PLL Enable (Disabled)
 #pragma config FPLLODIV = DIV_4         // System PLL Output Clock Divider (PLL Divide by 4)
 
 // DEVCFG1
@@ -54,7 +54,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
- 
+
+#define FPBCLK  (40000000)      // PBCLK frequency is 40MHz
+
 #define LED1        LATEbits.LATE6
 #define LED2        LATEbits.LATE7
 #define LED3        LATEbits.LATE1
@@ -307,7 +309,7 @@ static void UART1_begin(const int baud)
     U1STAbits.UTXEN = 1;    // Enable Tx
     U1STAbits.URXEN = 1;    // Enable Rx (unused at present)
     
-    U1BRG = (40000000 / (baud * 16)) - 1;
+    U1BRG = (FPBCLK / (baud * 16)) - 1;
     
     U1MODESET = _U1MODE_ON_MASK;      // Enable USART1
 }
@@ -328,7 +330,7 @@ static void UART2_begin(const int baud)
     U2STAbits.UTXEN = 1;    // Enable Tx
     U2STAbits.URXEN = 1;    // Enable Rx (unused at present)
     
-    U2BRG = (40000000 / (baud * 16)) - 1;
+    U2BRG = (FPBCLK / (baud * 16)) - 1;
     
     IPC9bits.U2IP = 1;          // UART2 interrupt priority 1 (lowest)
     IPC9bits.U2IS = 2;          // UART2 interrupt sub-priority 2
@@ -387,7 +389,7 @@ static void UART3_begin(const int baud)
     U3STAbits.UTXEN = 1;    // Enable Tx
     U3STAbits.URXEN = 1;    // Enable Rx (unused at present)
     
-    U3BRG = (40000000 / (baud * 16)) - 1;
+    U3BRG = (FPBCLK / (baud * 16)) - 1;
     
     U3MODESET = _U3MODE_ON_MASK;      // Enable USART3
 }
@@ -403,7 +405,7 @@ static void UART4_begin(const int baud)
     U4STAbits.UTXEN = 1;    // Enable Tx
     U4STAbits.URXEN = 1;    // Enable Rx (unused at present)
     
-    U4BRG = (40000000 / (baud * 16)) - 1;
+    U4BRG = (FPBCLK / (baud * 16)) - 1;
     
     U4MODESET = _U4MODE_ON_MASK;      // Enable USART4
 }
@@ -419,7 +421,7 @@ static void UART5_begin(const int baud)
     U5STAbits.UTXEN = 1;    // Enable Tx
     U5STAbits.URXEN = 1;    // Enable Rx (unused at present)
     
-    U5BRG = (40000000 / (baud * 16)) - 1;
+    U5BRG = (FPBCLK / (baud * 16)) - 1;
     
     U5MODESET = _U5MODE_ON_MASK;      // Enable USART5
 }
@@ -443,7 +445,7 @@ static void SPI3_begin(const int baud)
     SDI3Rbits.SDI3R = 0;   // SDI3 on RPD2, pin 77
     RPG8Rbits.RPG8R = 14;  // SDO3 on RPG8, pin 12, P1 pin 28
     
-    SPI3BRG = (20000000 / baud) - 1;
+    SPI3BRG = ((FPBCLK / 2) / baud) - 1;
     SPI3CONbits.MSTEN = 1;  // Master mode
     SPI3CONbits.MODE16 = 0; // 8-bit mode
     SPI3CONbits.MODE32 = 0;
@@ -503,21 +505,6 @@ bool SPIwrite(uint8_t *buf, const int nbytes)
 int SPIbytesPending(void)
 {
     return (SPIDummyReads);
-}
-
-
-static void I2C1_begin(const int speed)
-{
-    if (speed > 200)
-    {
-        I2C1BRG = 0x2c;     // 400kHz
-    }
-    else
-    {
-        I2C1BRG = 0xc2;     // 100kHz
-    }
-    
-    I2C1CONSET = _I2C1CON_ON_MASK;  // Enable I2C1
 }
 
 
@@ -815,11 +802,6 @@ static void PPS_begin(void)
     RPD8Rbits.RPD8R = 12; // OC1 on pin 68, P7 pin 10 (LED PWM)
     RPD0Rbits.RPD0R = 11; // OC2 on pin 72, P7 pin 14 (tone)
     
-    /* Configure SPI1 */
-    // SCK1 on pin 70 RD10 - can't use on this PCB
-    //SDI1Rbits.SDI1R = 0;   // SDI1 on RPD3
-    //RPC13Rbits.RPC13R = 8; // SDO1 on RPC13
-    
     /* Configure SPI2 */
     // SCK2 on pin 10, RG6, P1 pin 32
     SDI2Rbits.SDI2R = 0;   // SDI2 on RPD3, pin 78
@@ -829,17 +811,6 @@ static void PPS_begin(void)
     // SCK3 on pin 39, RF13, P1 pin 15
     SDI3Rbits.SDI3R = 0;   // SDI3 on RPD2, pin 77
     RPG8Rbits.RPG8R = 14;  // SDO3 on RPG8, pin 12, P1 pin 28
-    
-    /* Configure SPI4 */
-    // SCK4 on pin 48, RD15 blocked by Main current sense
-    
-    /* Configure I2C1 */
-    // SCL1 on RA14, pin 66, P1 pin 19
-    // SDA1 on RA15, pin 67, P1 pin 21
-    
-    /* Configure I2C2 */
-    // SCL2 on RA2, pin 58, P7 pin 20
-    // SDA2 on RA3, pin 59, P7 pin 22
 }
 
 
@@ -1024,9 +995,40 @@ int ReadController(const uint8_t cmd, const int nBits, uint8_t buf[])
 }
 
 
+/* initMCU --- set up the microcontroller in general */
+
+void initMCU(void)
+{
+    /* Configure interrupts */
+    INTCONSET = _INTCON_MVEC_MASK; // Multi-vector mode
+}
+
+
+/* initMillisecondTimer --- set up a timer to interrupt every millisecond */
+
+void initMillisecondTimer(void)
+{
+    /* Configure Timer 1 for 1kHz/1ms interrupts */
+    T1CONbits.TCKPS = 0;        // Timer 1 prescale: 1
+    
+    TMR1 = 0x00;                // Clear Timer 1 counter
+    PR1 = (FPBCLK / 1000) - 1;  // Interrupt every millisecond (1kHz)
+    
+    IPC1bits.T1IP = 7;          // Timer 1 interrupt priority 7 (highest)
+    IPC1bits.T1IS = 1;          // Timer 1 interrupt sub-priority 1
+    IFS0CLR = _IFS0_T1IF_MASK;  // Clear Timer 1 interrupt flag
+    IEC0SET = _IEC0_T1IE_MASK;  // Enable Timer 1 interrupt
+    
+    T1CONSET = _T1CON_ON_MASK;  // Enable Timer 1
+}
+
+
 void main(void)
 {
     ControllerReply buf;
+    
+    initMCU();
+    initMillisecondTimer();
     
     /* Set up peripherals to match pin connections on PCB */
     PPS_begin();
@@ -1048,43 +1050,8 @@ void main(void)
     UART3_begin(9600);
     UART4_begin(9600);
     UART5_begin(9600);
-
-    I2C1_begin(100);
     
     SPI3_begin(1000000);
-    
-    RPD8Rbits.RPD8R = 12; // OC1 on P7 pin 10 (LED PWM)
-    
-    /* Configure Timer 3 for 10-bit PWM */
-    T3CONbits.TCKPS = 6;        // Timer 3 prescale: 64
-    
-    TMR3 = 0x00;                // Clear Timer 3 counter
-    PR3 = 1023;                 // PWM range 0..1023 (10 bits)
-    
-    T3CONbits.ON = 1;           // Enable Timer 3
-    
-    OC1CONbits.OCTSEL = 1;      // Source: Timer 3
-    OC1CONbits.OCM = 6;         // PWM mode
-    
-    OC1RS = 256;
-    
-    OC1CONbits.ON = 1;          // Enable OC1 PWM
-            
-    /* Configure Timer 1 */
-    T1CONbits.TCKPS = 0;        // Timer 1 prescale: 1
-    
-    TMR1 = 0x00;                // Clear Timer 1 counter
-    PR1 = 39999;                // Interrupt every 40000 ticks (1ms)
-    
-    T1CONbits.ON = 1;           // Enable Timer 1
-    
-    /* Configure interrupts */
-    INTCONSET = _INTCON_MVEC_MASK; // Multi-vector mode
-    
-    IPC1bits.T1IP = 7;          // Timer 1 interrupt priority 7 (highest)
-    IPC1bits.T1IS = 1;          // Timer 1 interrupt sub-priority 1
-    IFS0CLR = _IFS0_T1IF_MASK;  // Clear Timer 1 interrupt flag
-    IEC0SET = _IEC0_T1IE_MASK;  // Enable Timer 1 interrupt
     
     __builtin_enable_interrupts();   // Global interrupt enable
     
