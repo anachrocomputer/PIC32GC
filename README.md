@@ -35,7 +35,7 @@ LEDs light when the pin is pulled LOW.
 
 ## PIC32 Toolchain ##
 
-MPLAB X V3.45 and 'xc32' V2.15. These are quite old versions now, so I really ought to upgrade!
+MPLAB X V5.20 and 'xc32' V2.15. These are quite old versions now, so I really ought to upgrade!
 
 ## PIC32 Programmer ##
 
